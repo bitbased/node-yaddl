@@ -1,6 +1,6 @@
 # Yaddl
 
-This project rocks and uses MIT-LICENSE.
+Yet another data definition language, and code generator.
 
 # Usage
 
