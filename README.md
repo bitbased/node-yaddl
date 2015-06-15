@@ -114,7 +114,7 @@ module.exports = <@key>Schema;
 
 # Example Employee.js generated Schema
 
-```
+```javascript
 var { Schema, Document } from '../mongoose-shim';
 
 var EmployeeSchema = new Schema({
