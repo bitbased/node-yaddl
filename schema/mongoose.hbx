@@ -1,0 +1,30 @@
+<#each models>
+//#FILE <@key>.js
+
+var { Schema, Document } from '../mongoose-shim';
+
+<#each $code>
+<~#xif "this[0] == '{'"><extractBlock this></xif~>
+<~#xif "this[0] == '/'"><this></xif>
+</each>
+<#each included>
+import { default as <type>Schema } from './<type>';
+</each>
+
+
+var <@key>Schema = new Schema(<json this filter="$code $includes $options" quotedKeys="auto"><#if $options>, <json $options quotedKeys="auto"></if>);
+
+<#each $code>
+  <#xif "this[0] == '$'">
+    <#xif "this[1] == '{' || this[1] == '}'">
+      <extractBlock this>
+    <else>
+      <#ensureProperty><@../key>Schema.<extractStatement this></ensureProperty>
+      <~@../key>Schema.<extractStatement this>;
+    </xif>
+  </xif>
+</each>
+
+module.exports = <@key>Schema;
+
+</each>

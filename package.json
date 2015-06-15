@@ -1,0 +1,43 @@
+{
+  "name": "node-yaddl",
+  "description": "Yaddl database definition language and code generator for node.js",
+  "author": "Brant Wedel",
+  "bin": "./bin/yaddl",
+  "keywords": [
+    "database",
+    "db",
+    "generator",
+    "orm",
+    "sql",
+    "mongo",
+    "ddl"
+  ],
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=0.6.0"
+  },
+  "bugs": {
+    "url": "https://github.com/bitbased/node-yaddl/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/btbased/node-yaddl.git"
+  },
+  "dependencies": {
+    "async": "^1.0.0",
+    "glob": "^5.0.10",
+    "hbs": "^3.1.0",
+    "js-beautify": "^1.5.6",
+    "pegjs": "^0.8.0",
+    "resolve": "^1.1.6",
+    "sqlite3": "~3.0.4",
+    "yamljs": "^0.2.3"
+  },
+  "devDependencies": {
+    "vows": "0.8.0"
+  },
+  "scripts": {
+    "test": "node node_modules/.bin/vows"
+  }
+}

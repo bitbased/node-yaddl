@@ -1,0 +1,129 @@
+var glob = require("glob")
+var fs = require("fs");
+var path = require("path");
+var YAML = require("yamljs");
+var Handlebars = require("hbs");
+var beautify = require('js-beautify').js_beautify
+var PEG = require("pegjs");
+
+var extend = require('util')._extend;
+
+var parser = require("../lib/parser.js");
+
+glob("**/*.yaddl", { follow: true, cwd: process.cwd() }, function (er, files) {
+  files.forEach(function (filename) {
+    console.log("---", path.basename(filename), "---");
+
+    try {
+      doc = parser.parse(fs.readFileSync(filename).toString());
+
+      var tempSrc = fs.readFileSync("mongoose.hbx").toString();
+
+      tempSrc = tempSrc
+        .replace(/( =?)<(=? )/,'$1__preserve_lt__$2')
+        .replace(/( =?)>(=? )/,'$1__preserve_gt__$2')
+        .replace(/\{\{/g,"\{{") // escape delimiters
+        .replace(/<\+/g,"{{>") // use + for partials
+        .replace(/</g,"{{").replace(/>/g,"}}") // replace delimiters
+        .replace(/__preserve_lt__/,'<')
+        .replace(/__preserve_gt__/,'>');
+
+      var context = this;
+
+      Handlebars.registerHelper("x", function (expression, options) {
+        var fn = function(){}, result;
+
+        // in a try block in case the expression have invalid javascript
+        try {
+          // create a new function using Function.apply, notice the capital F in Function
+          fn = Function.apply(
+            this,
+            [
+              'context', // or add more '_this, window, a, b' you can add more params if you have references for them when you call fn(window, a, b, c);
+              'return ' + expression + ';' // edit that if you know what you're doing
+            ]
+          );
+        } catch (e) {
+          console.warn('[warning] {{x ' + expression + '}} is invalid javascript', e);
+        }
+
+        // then let's execute this new function, and pass it window, like we promised
+        // so you can actually use window in your expression
+        // i.e expression ==> 'window.config.userLimit + 10 - 5 + 2 - user.count' //
+        // or whatever
+        try {
+          // if you have created the function with more params
+          // that would like fn(context, a, b, c)
+          result = fn.call(this, context);
+        } catch (e) {
+          console.warn('[warning] {{x ' + expression + '}} runtime error', e);
+        }
+        // return the output of that result, or undefined if some error occured
+        return result;
+      });
+
+      Handlebars.registerHelper("xif", function (expression, options) {
+        return Handlebars.handlebars.helpers["x"].apply(this, [expression, options]) ? options.fn(this) : options.inverse(this);
+      });
+
+      Handlebars.registerHelper('ensureProperty', function(options) {
+        var path = options.fn(this).split(".");
+        var build = [path[0]];
+        checks = "";
+        for (var i = 1; i < path.length; i++) {
+          current = path[i];
+          if (/[\[\]\(\),; ]/.test(current)) {
+            break;
+          }
+          build.push(current);
+          checks = checks + build.join(".") + " = " + build.join(".") + " || {};\n";
+        }
+        return checks;
+      });
+
+      Handlebars.registerHelper('extractBlock', function(options) {
+        return new Handlebars.SafeString(this.replace(/^\$?{((\n|.)*)}$/gm, '$1').trim());
+      });
+
+      Handlebars.registerHelper('extractStatement', function(options) {
+        return new Handlebars.SafeString(this.replace(/^\$?((\n|.)*)$/gm, '$1').trim());
+      });
+
+      Handlebars.registerHelper('json', function(object, options) {
+        if (options && options.hash && options.hash.filter) {
+          object = extend({}, object);
+          options.hash.filter.split(/,| /g).forEach(function(filter) {
+            delete object[filter];
+          });
+        }
+        var json = JSON.stringify(object);
+        if (options && options.hash && options.hash.quotedKeys == "auto") {
+          json = json.replace(/"@"/g, "'@'").replace(/\"([^(\")"]+)\":/g,"$1:").replace(/'@'/g, '"@"');
+        }
+        return new Handlebars.SafeString(json);
+      });
+      var template = Handlebars.compile(tempSrc, { noEscape: true });
+
+      var gen = template({ models: doc });
+
+      gen.trim().split(/(?=\/\/#FILE)/g).forEach(function (content) {
+        var filename = content.replace(/^\/\/#FILE (.*)\n(.|\n)*/gm, '$1')
+        if (filename.indexOf("@") !== 0) {
+          content = content.trim().replace(/^\/\/#FILE .*\n/gm, "").trim() + "\n";
+
+          content = content.replace(/&#x60;/g,"`").replace(/&#x27;/g,"'");
+
+          content = beautify(content, { indent_size: 4, keep_array_indentation: true, end_with_newline: true, max_preserve_newlines: 2 });
+
+          content = parser.beautify(content);
+
+          fs.writeFileSync(filename, content);
+        }
+      });
+
+    } catch (e) {
+      console.log(e);
+    }
+
+  });
+});
